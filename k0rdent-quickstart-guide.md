@@ -1,6 +1,6 @@
 # k0rdent Production-Grade Cluster Deployment Quickstart Guide
 
-This guide provides step-by-step instructions to deploy a production-grade k0rdent cluster. You'll set up a local kind cluster, deploy k0rdent on it, and then create two managed clusters - one on AWS and one on Azure.
+This guide provides step-by-step instructions to deploy a production-grade k0rdent cluster. You'll set up a k0s cluster, deploy k0rdent on it, and then create two managed clusters - one on AWS and one on Azure.
 
 ## Table of Contents
 
