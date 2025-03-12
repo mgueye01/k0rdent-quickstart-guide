@@ -511,11 +511,79 @@ Wait until the status shows `ClusterDeployment is ready`.
 kubectl -n kcm-system get secret azure-cluster-kubeconfig -o jsonpath='{.data.value}' | base64 -d > azure-cluster-kubeconfig.kubeconfig
 ```
 
-### 5.5 Verify Azure Cluster
+### 5.5 Create Azure Cloud Provider Secret
+
+After deploying the Azure cluster, you need to create the azure-cloud-provider secret in the kube-system namespace of the Azure cluster. This secret is required for the Azure cloud provider to authenticate with Azure and manage cloud resources.
 
 ```bash
-KUBECONFIG="azure-cluster-kubeconfig.kubeconfig" kubectl get nodes
+# Switch to the Azure cluster
+export KUBECONFIG="azure-cluster-kubeconfig.kubeconfig"
+
+# Create a configuration file for the Azure cloud provider
+cat > azure-cloud-provider.json << EOF
+{
+  "cloud": "AzurePublicCloud",
+  "tenantId": "<YOUR-TENANT-ID>",
+  "subscriptionId": "<YOUR-SUBSCRIPTION-ID>",
+  "aadClientId": "<YOUR-CLIENT-ID>",
+  "aadClientSecret": "<YOUR-CLIENT-SECRET>",
+  "resourceGroup": "azure-cluster",
+  "location": "<YOUR-AZURE-LOCATION>",
+  "vmType": "standard",
+  "subnetName": "azure-cluster-node-subnet",
+  "securityGroupName": "azure-cluster-node-nsg",
+  "vnetName": "azure-cluster-vnet",
+  "vnetResourceGroup": "azure-cluster",
+  "routeTableName": "azure-cluster-node-routetable",
+  "loadBalancerSku": "standard",
+  "useInstanceMetadata": true
+}
+EOF
+
+# Create the secret in the kube-system namespace
+kubectl create secret generic azure-cloud-provider --from-file=cloud-config=azure-cloud-provider.json -n kube-system
+
+# Restart the cloud-controller-manager pod to apply the changes
+kubectl delete pods -n kube-system -l app=cloud-controller-manager
 ```
+
+Replace the placeholders with your actual Azure credentials:
+- `<YOUR-TENANT-ID>`: Your Azure tenant ID
+- `<YOUR-SUBSCRIPTION-ID>`: Your Azure subscription ID
+- `<YOUR-CLIENT-ID>`: Your Azure service principal client ID
+- `<YOUR-CLIENT-SECRET>`: Your Azure service principal client secret
+- `<YOUR-AZURE-LOCATION>`: Your Azure location (e.g., eastus, francecentral)
+
+You can get these values from the management cluster:
+
+```bash
+# Switch back to the management cluster
+export KUBECONFIG="./KUBECONFIG"
+
+# Get the subscription ID and location
+kubectl describe azurecluster azure-cluster -n kcm-system | grep -E 'Subscription ID:|Location:'
+
+# Get the tenant ID and client ID
+kubectl get azureclusteridentity azure-cluster-identity -n kcm-system -o yaml | grep -E 'tenantID:|clientID:'
+
+# Get the client secret
+kubectl get secret azure-cluster-identity-secret -n kcm-system -o jsonpath='{.data.clientSecret}' | base64 -d
+```
+
+### 5.6 Verify Azure Cluster
+
+```bash
+# Switch to the Azure cluster
+export KUBECONFIG="azure-cluster-kubeconfig.kubeconfig"
+
+# Check the nodes
+kubectl get nodes
+
+# Check the pods in the kube-system namespace
+kubectl get pods -n kube-system
+```
+
+All pods should be in the Running state, including the cloud-controller-manager and csi-azuredisk-controller pods.
 
 ## Part 6: Accessing and Managing Your Clusters
 
